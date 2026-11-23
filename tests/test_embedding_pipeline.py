@@ -1,32 +1,32 @@
+
 from app.pipeline.document_pipeline import DocumentPipeline
 from app.embeddings.embedding_pipeline import EmbeddingPipeline
 
-# Step 1: Process the PDF
-document_pipeline = DocumentPipeline()
 
-chunks = document_pipeline.process_document(
-    r"data/uploaded_pdfs/210720M-Toyota-Company-Background.pdf"
-)
+def test_embedding_pipeline():
+    # Step 1: Process the PDF
+    document_pipeline = DocumentPipeline()
 
-print(f"Chunks Created: {len(chunks)}")
+    chunks = document_pipeline.process(
+        r"data/uploaded_pdfs/210720M-Toyota-Company-Background.pdf"
+    )
 
-# Step 2: Generate embeddings
-embedding_pipeline = EmbeddingPipeline()
+    assert len(chunks) > 0
 
-embedded_chunks = embedding_pipeline.process_chunks(chunks)
+    # Step 2: Generate embeddings
+    embedding_pipeline = EmbeddingPipeline()
 
-print(f"Embedded Chunks: {len(embedded_chunks)}")
+    embedded_chunks = embedding_pipeline.process_chunks(chunks)
 
-# Display the first embedded chunk
-first = embedded_chunks[0]
+    # Verify that embeddings were generated
+    assert len(embedded_chunks) == len(chunks)
 
-print("\nFirst Embedded Chunk")
-print("-" * 60)
-print(f"Chunk ID   : {first.chunk.chunk_id}")
-print(f"Document   : {first.chunk.document_name}")
-print(f"Page       : {first.chunk.page_number}")
-print(f"Vector Size: {len(first.embedding)}")
-print("\nText:")
-print(first.chunk.text)
-print("\nFirst 10 Vector Values:")
-print(first.embedding[:10])
+    first = embedded_chunks[0]
+
+    assert first.chunk.chunk_id is not None
+    assert first.chunk.document_name is not None
+    assert first.chunk.page_number is not None
+    assert len(first.embedding) > 0
+
+    # Verify embedding dimensions
+    assert len(first.embedding) == 384

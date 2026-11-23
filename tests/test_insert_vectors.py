@@ -1,20 +1,47 @@
+
 from app.pipeline.document_pipeline import DocumentPipeline
 from app.embeddings.embedding_pipeline import EmbeddingPipeline
-from app.vectorstore.qdrant_manager import QdrantManager
 
-PDF_PATH = r"C:\Users\dimpu\OneDrive\Desktop\adaptive-rag-framework\data\uploaded_pdfs\210720M-Toyota-Company-Background.pdf"
 
-# Process PDF
-document_pipeline = DocumentPipeline()
-chunks = document_pipeline.process_document(PDF_PATH)
+def test_insert_vectors(monkeypatch):
+    # Fake Qdrant manager to avoid modifying the real collection
+    class MockQdrantManager:
+        def __init__(self):
+            self.inserted_chunks = []
 
-# Generate embeddings
-embedding_pipeline = EmbeddingPipeline()
-embedded_chunks = embedding_pipeline.process_chunks(chunks)
+        def insert_chunks(self, chunks):
+            self.inserted_chunks = chunks
 
-# Store in Qdrant
-manager = QdrantManager()
-manager.reset_collection()
-manager.insert_chunks(embedded_chunks)
+        def count_vectors(self):
+            return len(self.inserted_chunks)
 
-print(f"Total vectors stored: {manager.count_vectors()}")
+    mock_manager = MockQdrantManager()
+
+    monkeypatch.setattr(
+        "app.vectorstore.qdrant_manager.QdrantManager",
+        lambda: mock_manager
+    )
+
+    # Process PDF
+    document_pipeline = DocumentPipeline()
+
+    chunks = document_pipeline.process(
+        r"data/uploaded_pdfs/210720M-Toyota-Company-Background.pdf"
+    )
+
+    assert len(chunks) > 0
+
+    # Generate embeddings
+    embedding_pipeline = EmbeddingPipeline()
+    embedded_chunks = embedding_pipeline.process_chunks(chunks)
+
+    assert len(embedded_chunks) == len(chunks)
+
+    # Insert into mocked Qdrant manager
+    from app.vectorstore.qdrant_manager import QdrantManager
+
+    manager = QdrantManager()
+    manager.insert_chunks(embedded_chunks)
+
+    # Verify insertion
+    assert manager.count_vectors() == len(embedded_chunks)

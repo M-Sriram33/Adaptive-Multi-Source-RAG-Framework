@@ -1,3 +1,4 @@
+
 fastapi
 uvicorn[standard]
 
@@ -13,10 +14,12 @@ langchain-qdrant
 qdrant-client
 
 sentence-transformers
+rank-bm25
 
 pymupdf
 
 python-dotenv
+requests
 
 groq
 
@@ -26,3 +29,4 @@ numpy
 pandas
 
 tqdm
+pytest

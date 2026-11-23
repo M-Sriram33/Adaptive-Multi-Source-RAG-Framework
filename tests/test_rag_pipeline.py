@@ -1,22 +1,22 @@
+
 from app.pipeline.rag_pipeline import RAGPipeline
 
-rag = RAGPipeline()
 
-question = input("Ask a question: ")
+def test_rag_pipeline():
+    rag = RAGPipeline()
 
-result = rag.answer_question(question)
+    question = "Give me an overview of Toyota."
 
-print("=" * 80)
-print("ANSWER")
-print("=" * 80)
+    result = rag.answer_question(question)
 
-print(result["answer"])
+    # Verify answer generation
+    assert result["answer"] is not None
+    assert len(result["answer"].strip()) > 0
 
-print("\n")
+    # Verify source attribution
+    assert isinstance(result["sources"], list)
 
-print("=" * 80)
-print("SOURCES")
-print("=" * 80)
-
-for i, source in enumerate(result["sources"], start=1):
-    print(f"{i}. {source['document']} (Page {source['page']})")
+    # If an answer is retrieved from the document,
+    # source references should be available.
+    if "could not find" not in result["answer"].lower():
+        assert len(result["sources"]) > 0

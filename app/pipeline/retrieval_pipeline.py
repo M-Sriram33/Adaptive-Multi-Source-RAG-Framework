@@ -1,20 +1,23 @@
-from app.retrieval.retriever import Retriever
-from app.config.settings import RETRIEVAL_SCORE_THRESHOLD
+
+from app.retrieval.hybrid_retriever import HybridRetriever
 
 
 class RetrievalPipeline:
     """
-    Handles document retrieval for user queries.
+    Handles document retrieval using hybrid search,
+    RRF fusion, and cross-encoder reranking.
     """
 
     def __init__(self):
-        self.retriever = Retriever()
+        self.retriever = HybridRetriever()
 
     def retrieve(self, query: str, top_k: int = 5):
         """
-        Retrieve the most relevant chunks and return
-        them in a clean format.
+        Retrieve and rerank relevant document chunks.
         """
+
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty.")
 
         results = self.retriever.search(
             query=query,
@@ -24,18 +27,12 @@ class RetrievalPipeline:
         retrieved_chunks = []
 
         for result in results:
-
-            if result.score < RETRIEVAL_SCORE_THRESHOLD:
-                continue
-
-            payload = result.payload
-
             retrieved_chunks.append({
-                "text": payload["text"],
-                "document_name": payload["document_name"],
-                "page_number": payload["page_number"],
-                "chunk_id": payload["chunk_id"],
-                "score": result.score,
+                "text": result["text"],
+                "document_name": result["document_name"],
+                "page_number": result["page_number"],
+                "chunk_id": result["chunk_id"],
+                "score": result["score"],
             })
 
         return retrieved_chunks

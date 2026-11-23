@@ -1,9 +1,19 @@
 import os
 import streamlit as st
+
 from app.pipeline.document_pipeline import DocumentPipeline
 from app.embeddings.embedding_pipeline import EmbeddingPipeline
 from app.vectorstore.qdrant_manager import QdrantManager
-from app.pipeline.rag_pipeline import RAGPipeline
+
+from app.sources.document_source import DocumentSource
+from app.sources.sql.sql_source import SQLSource
+from app.sources.api.api_source import APISource
+
+from app.router.source_router import SourceRouter
+from app.pipeline.multi_source_rag_pipeline import (
+    MultiSourceRAGPipeline
+)
+
 
 st.set_page_config(
     page_title="Adaptive Multi-Source RAG Framework",
@@ -13,7 +23,38 @@ st.set_page_config(
 document_pipeline = DocumentPipeline()
 embedding_pipeline = EmbeddingPipeline()
 qdrant_manager = QdrantManager()
-rag_pipeline = RAGPipeline()
+
+
+@st.cache_resource
+def initialize_multi_source_pipeline():
+
+    # Initialize all three sources
+    document_source = DocumentSource()
+
+    sql_source = SQLSource(
+        database_path="data/sample_database/company.db"
+    )
+
+    api_source = APISource()
+
+    # Register sources
+    router = SourceRouter(
+        sources=[
+            document_source,
+            sql_source,
+            api_source
+        ]
+    )
+
+    # Initialize complete RAG pipeline
+    pipeline = MultiSourceRAGPipeline(
+        router=router
+    )
+
+    return pipeline
+
+
+multi_source_pipeline = initialize_multi_source_pipeline()
 st.title("📚 Adaptive Multi-Source RAG Framework")
 
 st.markdown("""
@@ -104,52 +145,86 @@ if uploaded_files:
         )
 st.divider()
 
+
 # ==========================
 # Question Section
 # ==========================
 
-st.header("💬 Ask Questions")
+st.divider()
 
-question = st.text_input(
-    "Enter your question"
+st.header("💬 Ask Questions Across Multiple Sources")
+
+question = st.text_area(
+    "Enter your question",
+    placeholder=(
+        "Example:employee salary information, AAPL stock price."
+    ),
+    height=100
 )
 
 ask_clicked = st.button(
-    "Ask",
-    use_container_width=True
+    "🚀 Generate Answer",
+    use_container_width=True,
+    type="primary"
 )
-
-st.divider()
-
-# ==========================
-# Placeholder
-# ==========================
 
 if ask_clicked:
 
-    if question.strip():
-
-        with st.spinner("Generating answer..."):
-
-            result = rag_pipeline.answer_question(question)
-
-        st.subheader("🤖 Answer")
-
-        st.write(result["answer"])
-
-        st.subheader("📚 Sources")
-
-        if result["sources"]:
-
-            for source in result["sources"]:
-                st.markdown(
-                    f"- **{source['document']}** (Page {source['page']})"
-                )
-        else:
-
-            st.info("No relevant sources found.")
-
-            
-    else:
+    if not question.strip():
 
         st.warning("Please enter a question.")
+
+    else:
+
+        try:
+            with st.spinner(
+                "Retrieving information from relevant sources "
+                "and generating your answer..."
+            ):
+
+                result = multi_source_pipeline.answer_question(
+                    question
+                )
+
+            # Display generated answer
+            st.subheader("🤖 Generated Answer")
+            st.markdown(result["answer"])
+
+            st.divider()
+
+            # Display selected sources
+            st.subheader("🔍 Sources Used")
+
+            sources_used = result.get("sources_used", [])
+
+            if sources_used:
+                cols = st.columns(len(sources_used))
+
+                for col, source_name in zip(cols, sources_used):
+                    with col:
+                        st.success(source_name.upper())
+
+            # Display source references
+            st.subheader("📚 Source References")
+
+            sources = result.get("sources", [])
+
+            if sources:
+
+                for index, source in enumerate(sources, start=1):
+
+                    with st.expander(
+                        f"Source {index}: "
+                        f"{source.get('source_type', 'Unknown').upper()}"
+                    ):
+
+                        st.json(source)
+
+            else:
+                st.info("No source references available.")
+
+        except Exception as error:
+
+            st.error(
+                f"An error occurred while generating the answer: {error}"
+            )
